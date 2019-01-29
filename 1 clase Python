@@ -1,0 +1,115 @@
+# para poder introducir tildes y caracteres especiales
+# encoding=utf8
+
+"""
+@author:Mario Lopez
+@desc:Este programa lee los datos de %CPU y %RAM del portatil
+y los sube a Thingspeak utilizando el protocolo HTTP
+"""
+
+# importamos las librerías que queremos usar
+import psutil
+import httplib
+import urllib
+import json
+
+
+
+USER_API_KEY='DMWA9587KVZTUF95'
+
+server='api.thingspeak.com'
+#com es la variable o el objeto que referencia la conexion TCP
+connTCP=httplib.HTTPSConnection(server)
+print("Estableciendo conexión TCP..."),
+connTCP.connect() #establecer conexión
+print("Conexión TCP establecida!")
+
+#Creamos el canal
+print("Creando canal...")
+method = "POST"
+relative_uri = "/channels.json"
+headers = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+payload = {'api_key': USER_API_KEY,
+           'name': "Canal creado auto.",
+           'field1': "%CPU",
+           'field2': '%RAM'}
+payload_encoded=urllib.urlencode(payload)
+headers['Content-Length']=len(payload_encoded)
+print("\tEnviando petición de creacion de canal...")
+connTCP.request(method,relative_uri,headers=headers,body=payload_encoded)
+
+print("\tRecibiendo respuesta...")
+respuesta=connTCP.getresponse()
+status=respuesta.status
+print("\tStatus: "+ str(status))
+contenido=respuesta.read()
+#copiamos contenido en formato json a un dict
+contenido_jason=json.loads(contenido)
+
+CHANNEL_ID=contenido_jason['id']
+WRITE_API_KEY=contenido_jason['api_keys'][0]['api_key']
+
+try:
+    while(True):
+        # leyendo el API de la libreria psutil
+        # vemos cuales son los metodos para obtener %CPU y %RAM
+
+        # https://psutil.readthedocs.io/en/latest/#cpu
+        cpuPercent=psutil.cpu_percent(interval=15)
+        ramPercent=psutil.virtual_memory().percent
+
+        print("%CPU: " + str(cpuPercent) + "\t%RAM: " + str(ramPercent))
+
+        #crearmos petición http que sube datos a mi canal de thingspeak
+        #https://es.mathworks.com/help/thingspeak/writedata.html
+        method="POST"
+        relative_uri="/update.json"
+        headers={'Host' : server, 'Content-Type': 'application/x-www-form-urlencoded'}
+        # lo que se define entre llaves se llama es un diccionario, que es una secuencia
+        # desordenada de nombre valor
+        payload={'api_key': WRITE_API_KEY,
+                 'field1': cpuPercent,
+                 'field2': ramPercent}
+        #codificamos los datos a enviar en formato form.
+        payload_encoded=urllib.urlencode(payload)
+
+        #cuando queremos añadir cosas nuevas al diccionario lo hacemos con los corchetes , al definirlo con llaves
+        headers['Content-Length'] = len(payload_encoded)
+
+        print("Enviando petición HTTP ...")
+        connTCP.request(method, relative_uri, body=payload_encoded, headers=headers)
+        print("Petición enviada!")
+
+        print("Esperando respuesta HTTP...")
+        respuesta=connTCP.getresponse()
+        status=respuesta.status
+        print(str(status))
+
+
+
+
+except KeyboardInterrupt:
+    connTCP.close()
+    print("Se ha pulsado Ctrl+C. Saliendo del programa...")
+    #Vaciamos el canal
+    method = "DELETE"
+    relative_uri = "/channels/"+str(CHANNEL_ID)+"/feeds.json"
+    headers = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+    payload = {'api_key': USER_API_KEY}
+
+    # codificamos los datos a enviar en formato form.
+    payload_encoded = urllib.urlencode(payload)
+
+    # cuando queremos añadir cosas nuevas al diccionario lo hacemos con los corchetes , al definirlo con llaves
+    headers['Content-Length'] = len(payload_encoded)
+
+    print("Enviando petición HTTP ...")
+    connTCP.request(method, relative_uri, body=payload_encoded, headers=headers)
+    print("Petición enviada!")
+
+    print("Esperando respuesta HTTP...")
+    respuesta = connTCP.getresponse()
+    status = respuesta.status
+    print(str(status))
+    
+    
