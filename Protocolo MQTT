@@ -1,0 +1,29 @@
+#importamos el modulo publish de la libreria paho.mqtt
+import paho.mqtt.publish as publish
+#importamos la librería psutil que nos devuelve RAM y CPU
+import psutil
+import time
+
+broker="mqtt.thingspeak.com"
+#en el topic hay partes fijas y partes parametrizadas
+#parametrizadas: channelID y apikey
+topiko="channels/690713/publish/2F2YFKQA0SXT3VAU"
+
+while(True):
+    cpuPercent=psutil.cpu_percent()
+    ramPercent=psutil.virtual_memory().percent
+    print("\nCPU= " + str(cpuPercent) + "\tRAM= " + str(ramPercent))
+
+    #Specify the optional payload parameters
+    #for the PUBLISH message as Name=Value arguments,
+    #separated using & as a string.For example: field1 = 100 & field2 = 50 & lat = 30.61 & long = 40.35.
+
+    carga= "field1"= + str(cpuPercent) + "&field2=" + str(ramPercent)
+    #Publish a single message to a broker, then disconnect cleanly.
+    #Hay que definir a donde se manda el mensaje
+    # a que makina/broker ? broker
+    # a que topic ? topiko
+    # y que datos se manda-> payload
+    publish.single(topiko, payload=carga, hostname=broker )
+
+    time.sleep(15)
