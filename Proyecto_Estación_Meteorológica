@@ -1,0 +1,164 @@
+"""
+@author:Mario Lopez y Jorge Ors
+@desc:Este programa lee los datos de Humedad y Temperatura del sensor DHT22 desde la raspberrypi3
+y los sube a Thingspeak utilizando el protocolo HTTP
+Hay que descargar el Adafruit.
+"""
+
+# importamos las librerías que queremos usar
+import psutil
+import urllib
+import json
+import time
+import httplib
+import Adafruit_DHT
+
+USER_API_KEY = '7PZA5KLDJ4JHDDOF'
+
+server = 'api.thingspeak.com'
+# com es la variable o el objeto que referencia la conexion TCP
+connTCP = httplib.HTTPSConnection(server)
+print("Estableciendo conexión TCP..."),
+connTCP.connect()  # establecer conexión
+print("Conexión TCP establecida!")
+
+# Creamos el canal 1
+print("Creando canal 1...")
+method = "POST"
+relative_uri = "/channels.json"
+headers = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+payload = {'api_key': USER_API_KEY,
+           'name': "Canal 1 creado auto.",
+           'field1': "Temperatura",
+           'field2': 'Humedad'}
+payload_encoded = urllib.urlencode(payload)
+headers['Content-Length'] = len(payload_encoded)
+print("\tEnviando petición de creacion de canal 1...")
+connTCP.request(method, relative_uri, headers=headers, body=payload_encoded)
+
+print("\tRecibiendo respuesta...")
+respuesta = connTCP.getresponse()
+status = respuesta.status
+print("\tStatus: " + str(status))
+contenido = respuesta.read()
+# copiamos contenido en formato json a un dict
+contenido_jason = json.loads(contenido)
+
+CHANNEL_ID = contenido_jason['id']
+WRITE_API_KEY1 = contenido_jason['api_keys'][0]['api_key']
+# Creamos el canal 2
+print("Creando canal 2...")
+method2 = "POST"
+relative_uri2 = "/channels.json"
+headers2 = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+payload2 = {'api_key': USER_API_KEY,
+            'name': "Canal 2 creado auto.",
+            'field1': "Temperatura",
+            'field2': 'Humedad'}
+payload_encoded2 = urllib.urlencode(payload2)
+headers2['Content-Length'] = len(payload_encoded2)
+print("\tEnviando petición de creacion de canal 2...")
+connTCP.request(method2, relative_uri2, headers=headers2, body=payload_encoded2)
+
+print("\tRecibiendo respuesta...")
+respuesta2 = connTCP.getresponse()
+status2 = respuesta2.status
+print("\tStatus: " + str(status2))
+contenido2 = respuesta2.read()
+# copiamos contenido en formato json a un dict
+contenido_jason2 = json.loads(contenido2)
+
+CHANNEL_ID2 = contenido_jason2['id']
+WRITE_API_KEY2 = contenido_jason2['api_keys'][0]['api_key']
+
+try:
+    flag = True
+
+    sensor = Adafruit_DHT.AM2302
+    pin = '22'  #GPIO 022
+    
+    while (True):
+        humidity, temperature = Adafruit_DHT.read_retry(sensor, pin, delay_seconds=0)
+        print('Temperatura={0:0.1f}*  Humedad={1:0.1f}%'.format(temperature, humidity))
+
+        if flag == True:
+            WRITE_API_KEY = WRITE_API_KEY_1
+        else:
+            WRITE_API_KEY = WRITE_API_KEY_2
+
+        # crearmos petición http que sube datos a mi canal de thingspeak
+        # https://es.mathworks.com/help/thingspeak/writedata.html
+
+        print("%CPU: " + str(cpuPercent) + "\t%RAM: " + str(ramPercent))
+        # crearmos petición http que sube datos a mi canal de thingspeak
+        # https://es.mathworks.com/help/thingspeak/writedata.html
+        method = "POST"
+        relative_uri = "/update.json"
+        headers = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+        # lo que se define entre llaves se llama es un diccionario, que es una secuencia
+        # desordenada de nombre valor
+        payload = {'api_key': WRITE_API_KEY,
+                   'field1': temperature,
+                   'field2': humidity}
+        # codificamos los datos a enviar en formato form.
+        payload_encoded = urllib.urlencode(payload)
+
+        # cuando queremos añadir cosas nuevas al diccionario lo hacemos con los corchetes , al definirlo con llaves
+        headers['Content-Length'] = len(payload_encoded)
+
+        print("Enviando petición HTTP ...")
+        connTCP.request(method, relative_uri, body=payload_encoded, headers=headers)
+        print("Petición enviada!")
+
+        print("Esperando respuesta HTTP...")
+        respuesta = connTCP.getresponse()
+        status = respuesta.status
+        print(str(status))
+        print (respuesta.read())
+        flag = not flag
+		time.sleep(10)       #Hacemos que espere 10 segundos hasta subir el siguiente dato con el otro canal
+
+except KeyboardInterrupt:
+    connTCP.close()
+    print("Se ha pulsado Ctrl+C. Saliendo del programa...")
+    # Vaciamos el canal 1
+    method = "DELETE"
+    relative_uri = "/channels/" + str(CHANNEL_ID) + "/feeds.json"
+    headers = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+    payload = {'api_key': USER_API_KEY}
+
+    # codificamos los datos a enviar en formato form.
+    payload_encoded = urllib.urlencode(payload)
+
+    # cuando queremos añadir cosas nuevas al diccionario lo hacemos con los corchetes , al definirlo con llaves
+    headers['Content-Length'] = len(payload_encoded)
+
+    print("Enviando petición HTTP ...")
+    connTCP.request(method, relative_uri, body=payload_encoded, headers=headers)
+    print("Petición enviada!")
+
+    print("Esperando respuesta HTTP...")
+    respuesta = connTCP.getresponse()
+    status = respuesta.status
+    print(str(status))
+
+    # De forma análoga vaciamos el canal 2
+    method2 = "DELETE"
+    relative_uri2 = "/channels/" + str(CHANNEL_ID2) + "/feeds.json"
+    headers2 = {'Host': server, 'Content-Type': 'application/x-www-form-urlencoded'}
+    payload2 = {'api_key': USER_API_KEY}
+
+    # codificamos los datos a enviar en formato form.
+    payload_encoded2 = urllib.urlencode(payload2)
+
+    # cuando queremos añadir cosas nuevas al diccionario lo hacemos con los corchetes , al definirlo con llaves
+    headers2['Content-Length'] = len(payload_encoded2)
+
+    print("Enviando petición HTTP ...")
+    connTCP.request(method2, relative_uri2, body=payload_encoded2, headers=headers2)
+    print("Petición enviada!")
+
+    print("Esperando respuesta HTTP...")
+    respuesta2 = connTCP.getresponse()
+    status2 = respuesta2.status
+    print(str(status2))
