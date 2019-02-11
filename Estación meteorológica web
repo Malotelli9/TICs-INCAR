@@ -1,0 +1,57 @@
+<html>
+	<head>
+		<title>LineCharts_Station</title>
+		<script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+		<script type="text/javascript">
+		  var jsondata;
+		  function mycallback(dataWeGotViaJsonp) {
+		    jsondata = dataWeGotViaJsonp['feeds'];
+			};
+		</script>	
+		<script type="text/javascript" src="https://api.thingspeak.com/channels/700591/feeds.json?results=50&callback=mycallback"></script>
+		<script type="text/javascript">
+		  var jsondata1;
+		  jsondata1=jsondata;
+		</script>	
+		<script type="text/javascript" src="https://api.thingspeak.com/channels/700590/feeds.json?results=50&callback=mycallback"></script>
+		<script type="text/javascript">
+		  var jsondata2;
+		  jsondata2=jsondata;
+		</script>
+		<script type="text/javascript">
+		  google.charts.load('current',{'packages':['corechart']});
+		  google.charts.setOnLoadCallback(drawChart);
+		  function drawChart() {
+		    var data = new google.visualization.DataTable();
+		      data.addColumn('datetime','Time');
+		      data.addColumn('number','Humedad');
+		      data.addColumn('number','Temperatura');
+		    var Datosmet = [];
+		    for (var j=0; j<jsondata1.length; j++){
+		      Datosmet.push(jsondata1[j]);
+		      Datosmet.push(jsondata2[j]);
+		    };
+		
+		for(var i= 0; i<Datosmet.length; i++) {
+		var timestamp = Datosmet[i]['created_at'];
+		var Humedad = Datosmet[i]['field1'];
+		var Temperatura = Datosmet[i]['field2'];
+		data.addRow([new Date (timestamp), parseFloat(Humedad),parseFloat(Temperatura)]);
+		};
+		var options = {
+		title: 'Weather Station', legend: {position:'bottom'},
+		curveType: 'function',colors: ['red','blue'],
+		series: {0:{targetAxisIndex:0},1:{targetAxisIndex:1}},
+		vAxes: {0:{title:'Humedad (%)'},1:{title:'Temperatura (ºC)'}}
+		};
+		
+		var chart = new google.visualization.LineChart(document.getElementById('curve_chart'));
+		chart.draw(data,options);
+		};
+		</script>	
+	</head>
+	<body>
+		<div id="curve_chart"></div>
+	</body>
+
+	</html>
