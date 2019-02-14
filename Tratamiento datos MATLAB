@@ -1,0 +1,56 @@
+%% Tratamiento de Datos
+ 
+%% Descarga de datos de Thingspeak con la Toolbox
+datos_canal_1 = thingSpeakRead(700590,'Fields',[1,2],'NumPoints',92,'OutputFormat','matrix');
+datos_canal_2 = thingSpeakRead(700591,'Fields',[1,2],'NumPoints',91,'OutputFormat','matrix');
+
+
+%Combinamos los datos de los dos canales
+flag=true;
+cont=1;
+for i=1:length(datos_canal_1)
+    if flag==true
+        Humedad(i)=datos_canal_1(cont,1);
+        flag=false;
+        cont=cont+1;
+    else
+        Humedad(i)=datos_canal_2(cont-1,1);
+        flag=true;
+    end
+end
+
+
+flag=true;
+cont=1;
+for i=1:length(datos_canal_2)
+    if flag==true
+        Temperatura(i)=datos_canal_2(cont,2);
+        flag=false;
+        cont=cont+1;
+    else
+        Temperatura(i)=datos_canal_2(cont-1,2);
+        flag=true;
+    end
+end
+
+%% Tratamiento estadístico
+Tmed=mean(Temperatura)
+Hmed=mean(Humedad)
+
+%Diferencia entre máximo y mínimo
+T_max_min=max(Temperatura)-min(Temperatura)
+H_max_min=min(Humedad)-min(Humedad)
+
+%Desviación estándar
+Des_T=std(Temperatura)
+Des_H=std(Humedad)
+
+%Varianza
+var_T=var(Temperatura)
+var_H=var(Humedad)
+
+%Diagrama de dispersión
+scatter(Temperatura,Humedad,'filled')
+xlabel('Temperatura')
+ylabel('Humedad')
+title('Diagrama de dispersión')
